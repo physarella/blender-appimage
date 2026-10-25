@@ -60,6 +60,22 @@ Programs that Blender starts, such as a browser for the manual,
 also keep their caches and temporary files in the profile
 if they were not already running.
 
+## AMD GPUs
+
+AppImages of Blender 5 and later carry AMD's HIP runtime, ROCm 7.2.4,
+so Cycles and the denoiser can use AMD GPUs
+with no ROCm installed on the system.
+Blender already ships the GPU code for each card;
+only AMD's runtime was missing.
+It adds about 65 MB to the AppImage.
+
+It needs the `amdgpu` kernel driver with access to `/dev/kfd`,
+and these libraries from the system:
+`libnuma`, `libdrm`, `libdrm_amdgpu`, `libelf`, `libz` and `libzstd`.
+
+Older versions of Blender are built against an older ROCm,
+so they get none and use the one on the system.
+
 ## Troubleshooting
 ### Fuse
 If you can't open an AppImage make sure `libfuse.so.2`
@@ -78,8 +94,12 @@ You will need a Linux machine to build an AppImage
 On a terminal run the following to make sure scripts dependencies are installed
 
 ```shell
-which cat echo md5sum sed sha256sum tar wget zip > /dev/null
+which cat cpio echo jq md5sum rpm2cpio sed sha256sum tar wget zip > /dev/null
 ```
+
+`cpio` and `rpm2cpio` unpack AMD's HIP runtime for Blender 5 and later.
+`dlRocm.sh` downloads it from AMD's repository
+and checks each package against a SHA-256 hash in the script.
 
 The command will exit without printing anything
 if all dependencies are satisfied.

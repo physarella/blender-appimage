@@ -12,6 +12,11 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install rpm2cpio to unpack AMD's HIP runtime
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm2cpio
+
       - name: Download AppImage Builder program
         run: |
           ./dlAppImg.sh

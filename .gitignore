@@ -1,4 +1,5 @@
 *
+!dlRocm.sh
 !manifest.sh
 !mkAppImg.sh
 !README.md

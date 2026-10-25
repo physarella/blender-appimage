@@ -90,12 +90,20 @@ tar -xf "data/$TAR_NAME" -C AppDir --strip-components=1 || exit 1
 echo "Reconfiguring files in preparation for AppImage..."
 
 [[ $TAR_NAME =~ ^blender-([0-9]+)\.([0-9]+) ]]
+MAJOR="${BASH_REMATCH[1]}"
 VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
 
 if [[ -f "AppDir/blender-launcher" ]]; then
 	create_apprun_script "AppDir/AppRun" "blender-launcher" "$VERSION"
 else
 	create_apprun_script "AppDir/AppRun" "blender" "$VERSION"
+fi
+
+# Blender 5 is built against ROCm 7. Older versions need an older ROCm, so they
+# are left to the one on the system.
+if [[ $ARCH == x86_64 && $MAJOR -ge 5 ]]; then
+	echo "Adding AMD's HIP runtime"
+	./dlRocm.sh AppDir/lib || exit 1
 fi
 
 # Add X- in front of desktop entries to make appimage happy
