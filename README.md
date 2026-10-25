@@ -28,13 +28,30 @@ For more information on how AppImages work, visit https://appimage.org/
 
 AppImage builds are created 
 using a [GitHub workflow](.github/workflows/manifest.yml) and are available
-on the [Releases](https://github.com/Lethja/blender-appimage/releases) page.
+on the [Releases](https://github.com/physarella/blender-appimage/releases) page.
 
 Download and extract the zip,
 then double-click on the extracted AppImage to run.
 
 The release title specifies the date the AppImage is built
 rather than the version of Blender.
+
+## New Blender versions
+
+Every Monday the [New Blender Releases](.github/workflows/update.yml)
+workflow runs `update.sh`, which moves each entry of `manifest.sh`
+to the newest patch release of its series
+and adds a series newer than any listed.
+It builds the entries that changed,
+commits the updated `manifest.sh` and publishes them as a release.
+Entries are never removed.
+
+To build entries now, run the workflow from the Actions tab
+with their numbers, such as `8`.
+
+GitHub turns off scheduled workflows in a repository
+with no activity for 60 days.
+If that happens, turn it back on from the workflow's page in the Actions tab.
 
 ## Portable by default
 

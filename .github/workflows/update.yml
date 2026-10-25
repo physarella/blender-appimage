@@ -1,0 +1,70 @@
+name: New Blender Releases
+
+on:
+  schedule:
+    - cron: '23 5 * * 1'
+  workflow_dispatch:
+    inputs:
+      entries:
+        description: 'Manifest entries to build even if unchanged, such as "8"'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+jobs:
+  Update:
+    name: Build and release new Blender versions
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Find new Blender releases
+        id: update
+        env:
+          EXTRA: ${{ inputs.entries }}
+        run: |
+          if [[ ! $EXTRA =~ ^[0-9\ ]*$ ]]; then echo "Entries must be numbers separated by spaces"; exit 1; fi
+          found=$(./update.sh) || exit 1
+          echo "entries=$(echo $found $EXTRA | tr ' ' '\n' | sort -nu | paste -sd ' ')" >> "$GITHUB_OUTPUT"
+
+      - name: Install rpm2cpio to unpack AMD's HIP runtime
+        if: steps.update.outputs.entries != ''
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y rpm2cpio
+
+      - name: Build AppImages
+        if: steps.update.outputs.entries != ''
+        env:
+          ENTRIES: ${{ steps.update.outputs.entries }}
+        run: |
+          ./dlAppImg.sh
+          ./manifest.sh $ENTRIES
+          # manifest.sh carries on past a failed build.
+          if [ "$(ls zip/*.zip 2>/dev/null | wc -l)" -ne "$(wc -w <<< "$ENTRIES")" ]; then
+            echo "Some AppImages failed to build"
+            exit 1
+          fi
+
+      - name: Commit the updated manifest
+        if: steps.update.outputs.entries != ''
+        run: |
+          if git diff --quiet manifest.sh; then exit 0; fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898233+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Update to $(ls zip | sed 's/-x86_64.AppImage.zip//' | paste -sd ' ')" manifest.sh
+          git push
+
+      - name: Publish release
+        if: steps.update.outputs.entries != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG=$(date -I)
+          NOTES="Blender AppImages built on $TAG: $(ls zip | sed 's/-x86_64.AppImage.zip//' | paste -sd ' ')"
+          # A second run on the same day adds to that day's release.
+          gh release create "$TAG" --title "$TAG" --notes "$NOTES" zip/*.zip ||
+            gh release upload "$TAG" zip/*.zip --clobber
