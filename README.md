@@ -36,6 +36,30 @@ then double-click on the extracted AppImage to run.
 The release title specifies the date the AppImage is built
 rather than the version of Blender.
 
+## Portable by default
+
+The AppImage keeps all of Blender's files in a `blender-profile` folder
+next to it, with one folder per Blender version,
+such as `blender-profile/5.2`,
+instead of `~/.config/blender`, `~/.cache/blender` and `/tmp`:
+
+- `config`, `scripts`, `datafiles` and `extensions`:
+  what Blender keeps in `~/.config/blender/5.2`
+- `cache`: Blender's caches, and those of the graphics driver
+- `temp`: temporary files, including autosaves and the `quit.blend`
+  that Blender saves on quit, which survive a restart here
+
+To keep your settings, copy the contents of `~/.config/blender/5.2`
+into `blender-profile/5.2`.
+
+To choose the folders yourself, set any of Blender's `BLENDER_USER_*`
+variables, such as `BLENDER_USER_RESOURCES`;
+the AppImage then leaves Blender's folders alone.
+
+Programs that Blender starts, such as a browser for the manual,
+also keep their caches and temporary files in the profile
+if they were not already running.
+
 ## Troubleshooting
 ### Fuse
 If you can't open an AppImage make sure `libfuse.so.2`

@@ -26,11 +26,37 @@ download_and_verify() {
 }
 
 create_apprun_script() {
-	cat << EOF > "$1"
-#!/bin/bash
-APPDIR="\$(dirname "\$(readlink -f "\$0")")"
-exec "\$APPDIR/$2" "\$@"
+	{
+		echo '#!/bin/bash'
+		echo "LAUNCHER=$2"
+		echo "PROFILE_VERSION=$3"
+		cat << 'EOF'
+APPDIR="$(dirname "$(readlink -f "$0")")"
+
+# Portable by default: Blender keeps all its files in one folder next to the
+# AppImage, laid out like ~/.config/blender/<version>, unless a BLENDER_USER_*
+# variable already says where they go.
+if ! env | grep -q '^BLENDER_USER_'; then
+	PROFILE="$(dirname "${APPIMAGE:-$APPDIR}")/blender-profile/$PROFILE_VERSION"
+	export BLENDER_USER_CONFIG="$PROFILE/config"
+	export BLENDER_USER_SCRIPTS="$PROFILE/scripts"
+	export BLENDER_USER_DATAFILES="$PROFILE/datafiles"
+	export BLENDER_USER_EXTENSIONS="$PROFILE/extensions"
+	# Blender takes its cache folder from XDG_CACHE_HOME, and its temporary
+	# folder, which holds autosaves and the file it saves on quit, from TMPDIR
+	# while Preferences > File Paths leaves it empty. Programs that Blender
+	# starts, such as a browser for the manual, inherit both.
+	export XDG_CACHE_HOME="$PROFILE/cache"
+	export TMPDIR="$PROFILE/temp"
+	# Blender ignores a BLENDER_USER_* folder that does not exist yet, and
+	# falls back to ~/.config/blender.
+	mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$BLENDER_USER_DATAFILES" \
+		"$BLENDER_USER_EXTENSIONS" "$XDG_CACHE_HOME" "$TMPDIR" || exit 1
+fi
+
+exec "$APPDIR/$LAUNCHER" "$@"
 EOF
+	} > "$1"
 
 	chmod +x "$1"
 }
@@ -63,10 +89,13 @@ tar -xf "data/$TAR_NAME" -C AppDir --strip-components=1 || exit 1
 
 echo "Reconfiguring files in preparation for AppImage..."
 
+[[ $TAR_NAME =~ ^blender-([0-9]+)\.([0-9]+) ]]
+VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
+
 if [[ -f "AppDir/blender-launcher" ]]; then
-	create_apprun_script "AppDir/AppRun" "blender-launcher"
+	create_apprun_script "AppDir/AppRun" "blender-launcher" "$VERSION"
 else
-	create_apprun_script "AppDir/AppRun" "blender"
+	create_apprun_script "AppDir/AppRun" "blender" "$VERSION"
 fi
 
 # Add X- in front of desktop entries to make appimage happy
