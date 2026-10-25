@@ -48,10 +48,13 @@ if ! env | grep -q '^BLENDER_USER_'; then
 	# starts, such as a browser for the manual, inherit both.
 	export XDG_CACHE_HOME="$PROFILE/cache"
 	export TMPDIR="$PROFILE/temp"
-	# Blender ignores a BLENDER_USER_* folder that does not exist yet, and
-	# falls back to ~/.config/blender.
-	mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$BLENDER_USER_DATAFILES" \
-		"$BLENDER_USER_EXTENSIONS" "$XDG_CACHE_HOME" "$TMPDIR" || exit 1
+	# Blender saves its preferences to ~/.config/blender instead while the
+	# BLENDER_USER_CONFIG folder does not exist yet.
+	if ! mkdir -p "$BLENDER_USER_CONFIG" "$BLENDER_USER_SCRIPTS" "$BLENDER_USER_DATAFILES" \
+		"$BLENDER_USER_EXTENSIONS" "$XDG_CACHE_HOME" "$TMPDIR"; then
+		echo "Couldn't create $PROFILE; set a BLENDER_USER_* variable to keep Blender's files elsewhere" >&2
+		exit 1
+	fi
 fi
 
 exec "$APPDIR/$LAUNCHER" "$@"
@@ -89,8 +92,10 @@ tar -xf "data/$TAR_NAME" -C AppDir --strip-components=1 || exit 1
 
 echo "Reconfiguring files in preparation for AppImage..."
 
-[[ $TAR_NAME =~ ^blender-([0-9]+)\.([0-9]+) ]]
-MAJOR="${BASH_REMATCH[1]}"
+if ! [[ $TAR_NAME =~ ^blender-([0-9]+)\.([0-9]+) ]]; then
+	echo "Couldn't read the Blender version from $TAR_NAME"
+	exit 1
+fi
 VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}"
 
 if [[ -f "AppDir/blender-launcher" ]]; then
@@ -99,9 +104,10 @@ else
 	create_apprun_script "AppDir/AppRun" "blender" "$VERSION"
 fi
 
-# Blender 5 is built against ROCm 7. Older versions need an older ROCm, so they
-# are left to the one on the system.
-if [[ $ARCH == x86_64 && $MAJOR -ge 5 ]]; then
+# Only builds whose denoiser is linked against ROCm 7, Blender 5.2 and later,
+# get AMD's runtime. Blender finds the bundled copy before the system's, and
+# older builds need the older ROCm they were built against.
+if readelf -d AppDir/lib/libOpenImageDenoise_device_hip.so* 2>/dev/null | grep -q '\[libamdhip64\.so\.7\]'; then
 	echo "Adding AMD's HIP runtime"
 	./dlRocm.sh AppDir/lib || exit 1
 fi
